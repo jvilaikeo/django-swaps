@@ -5,12 +5,16 @@
 {% block head_title %}{% blocktrans %}Add a new Offer{% endblocktrans %}{% endblock %}
 
 {% block body %}
-    
+
     <h1>{% trans "Add a new Offer" %}</h1>
-    
-    <form id="offer_form" method="POST" action="">
+
+    <form id="offer_form" method="POST" action="" enctype="multipart/form-data">
+        {{ offer_form.as_p }}
         <table>
-            {{ offer_form }}
+            {% for name, inline in offer_form.inlines %}
+              <tr><th colspan="2" class="inline_title">{{ name }}</th></tr>
+              {{ inline }}
+            {% endfor %}
             <tr><td></td><td><input type="hidden" name="action" value="create" /><input type="submit" value="create"/></td></tr>
         </table>
     </form>

@@ -6,19 +6,28 @@
 {% block head_title %}{% blocktrans %}Editing Offer{% endblocktrans %}{% endblock %}
 
 {% block body %}
-    
+
     <h1>{% trans "Editing Offer" %}</h1>
-    
+
     {% ifequal offer.offerer request.user %}
         <div>
-            <form id="offer_form" method="POST" action="">
+            <form id="offer_form" method="POST" action="" enctype="multipart/form-data">
+                {{ offer_form.as_p }}
                 <table>
-                    {{ offer_form }}
-                    <tr><td></td><td><input type="hidden" name="action" value="update" /><input type="submit" value="{% trans "update" %}"/></td></tr>
+                    {% for name, inline in offer_form.inlines %}
+                      <tr><th colspan="2" class="inline_title">{{ name }}</th></tr>
+                      <tr>
+                      {% for field in inline.fileds %}
+                        <td>{{ field }}</td>
+                      {% endfor %}
+                      </tr>
+                      {{ inline }}
+                    {% endfor %}
+                    <tr><td></td><td><input type="hidden" name="action" value="update" /><input type="submit" value="update"/></td></tr>
                 </table>
             </form>
         </div>
     {% else %}
-        <p>You are not the creator of this offer.</p>
+        <p>{% trans "You are not the creator of this offer." %}</p>
     {% endifequal %}
 {% endblock %}

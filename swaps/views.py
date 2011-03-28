@@ -46,7 +46,7 @@ def your_offers(request):
 
 @login_required
 def swap(request, swap_id):
-    swap = get_object_or_404(Swap, id=swap_id)   
+    swap = get_object_or_404(Swap, id=swap_id)
     return render_to_response("swaps/swap.html", {
         "swap": swap,
     }, context_instance=RequestContext(request))
@@ -58,88 +58,125 @@ def proposed_by_you(request):
 
 @login_required
 def proposed_to_you(request):
-    swaps = Swap.objects.filter(responding_offer__offerer=request.user, state=1).order_by("-proposed_time")   
+    swaps = Swap.objects.filter(responding_offer__offerer=request.user, state=1).order_by("-proposed_time")
     return render_to_response("swaps/proposed_to_you.html", {"swaps": swaps}, context_instance=RequestContext(request))
 
 @login_required
 def accepted_swaps(request):
     swaps = Swap.objects.filter(
         Q(state=2, proposing_offer__offerer=request.user) |
-        Q(state=2, responding_offer__offerer=request.user)).order_by("-accepted_time") 
+        Q(state=2, responding_offer__offerer=request.user)).order_by("-accepted_time")
     return render_to_response("swaps/accepted.html", {"swaps": swaps}, context_instance=RequestContext(request))
 
 @login_required
 def dead_swaps(request):
     swaps = Swap.objects.filter(
         Q(state__gt=3, proposing_offer__offerer=request.user) |
-        Q(state__gt=3, responding_offer__offerer=request.user)).order_by("-killed_time") 
+        Q(state__gt=3, responding_offer__offerer=request.user)).order_by("-killed_time")
     return render_to_response("swaps/dead.html", {"swaps": swaps}, context_instance=RequestContext(request))
 
 
 @login_required
 def new(request):
+    def is_valid(formsets):
+        valid = True
+        for name, formset in formsets:
+            valid = valid and formset.is_valid()
+        return valid
+    formsets = []
     if request.method == "POST":
         if request.POST["action"] == "create":
-            offer_form = OfferForm(request.POST)
-            if offer_form.is_valid():
+            for name, formset_class in OfferForm.inlines:
+                formsets+=[(name, formset_class(request.POST, request.FILES)),]
+            offer_form = OfferForm(request.POST, request.FILES)
+            formsets_valid = is_valid(formsets)
+            offer_form.inlines = formsets
+            if offer_form.is_valid() and formsets_valid:
                 offer = offer_form.save(commit=False)
                 offer.offerer = request.user
                 offer.save()
+                for name, formset_class in OfferForm.inlines:
+                    f = formset_class(request.POST, request.FILES, instance=offer)
+                    if f.is_valid():
+                        f.save()
+
                 request.user.message_set.create(message=_("Successfully saved offer '%s'") % offer.short_description)
                #if notification:
                #     if friends: # @@@ might be worth having a shortcut for sending to all friends
                #         notification.send((x['friend'] for x in Friendship.objects.friends_for_user(offer.offerer)), "offer_friend_post", {"post": blog})
-                
+
                 return HttpResponseRedirect(reverse("offer_list_yours"))
+
+
         else:
             offer_form = OfferForm()
     else:
         offer_form = OfferForm()
-    
+
     return render_to_response("swaps/new_offer.html", {
         "offer_form": offer_form
     }, context_instance=RequestContext(request))
-    
-    
+
+
 @login_required
 def edit_offer(request, offer_id):
+    def is_valid(formsets):
+        valid = True
+        for name, formset in formsets:
+            valid = valid and formset.is_valid()
+        return valid
     offer = get_object_or_404(Offer, id=offer_id)
     if offer.offerer != request.user:
         request.user.message_set.create(message="You cannot edit offers that are not yours")
         return HttpResponseRedirect(reverse("offer_list_yours"))
     return_to = request.GET['returnto']
+    formsets = []
     if request.method == "POST":
         if request.POST["action"] == "update":
             offer_form = OfferForm(request.POST, instance=offer)
-            if offer_form.is_valid():
+            for name, formset_class in OfferForm.inlines:
+                formsets+=[(name, formset_class(request.POST, request.FILES, instance=offer)),]
+            formsets_valid = is_valid(formsets)
+            offer_form.inlines = formsets
+            if offer_form.is_valid() and formsets_valid:
                 offer = offer_form.save(commit=False)
                 offer.save()
+                for name, formset_class in OfferForm.inlines:
+                    f = formset_class(request.POST, request.FILES, instance=offer)
+                    if f.is_valid():
+                        f.save()
                 if notification:
                     for swap in offer.proposed_swaps.filter(state=1):
-                        notification.send([swap.responding_offer.offerer,], "swaps_proposing_offer_changed", 
-                            {"creator": request.user, 
-                             "swap": swap, 
-                             "proposing_offer": swap.proposing_offer, 
+                        notification.send([swap.responding_offer.offerer,], "swaps_proposing_offer_changed",
+                            {"creator": request.user,
+                             "swap": swap,
+                             "proposing_offer": swap.proposing_offer,
                              "responding_offer": swap.responding_offer})
                     for swap in offer.responding_swaps.filter(state=1):
-                        notification.send([swap.proposing_offer.offerer,], "swaps_responding_offer_changed", 
-                            {"creator": request.user, 
-                             "swap": swap, 
-                             "proposing_offer": swap.proposing_offer, 
-                             "responding_offer": swap.responding_offer}) 
-                    
+                        notification.send([swap.proposing_offer.offerer,], "swaps_responding_offer_changed",
+                            {"creator": request.user,
+                             "swap": swap,
+                             "proposing_offer": swap.proposing_offer,
+                             "responding_offer": swap.responding_offer})
+
                 request.user.message_set.create(message=_("Successfully updated offer '%s'") % offer.short_description)
                 return HttpResponseRedirect(reverse(return_to))
         else:
             offer_form = OfferForm(instance=offer)
+            for name, formset_class in OfferForm.inlines:
+                formsets+=[(name, formset_class(None, None, instance=offer)),]
+
     else:
         offer_form = OfferForm(instance=offer)
-    
+        for name, formset_class in OfferForm.inlines:
+            formsets+=[(name, formset_class(None, None, instance=offer)),]
+
+    offer_form.inlines = formsets
     return render_to_response("swaps/edit_offer.html", {
         "offer_form": offer_form,
         "offer": offer,
     }, context_instance=RequestContext(request))
-    
+
 @login_required
 def delete_offer(request, offer_id):
     offer = get_object_or_404(Offer, id=offer_id)
@@ -181,12 +218,12 @@ def propose_swap(request, offer_id):
             swap.save()
         if swap:
             if notification:
-                notification.send([offer.offerer,], "swaps_proposal", 
-                    {"creator": request.user, 
-                     "swap": swap, 
-                     "proposing_offer": swap.proposing_offer, 
-                     "responding_offer": swap.responding_offer}) 
-            return HttpResponseRedirect(reverse("proposed_by_you"))            
+                notification.send([offer.offerer,], "swaps_proposal",
+                    {"creator": request.user,
+                     "swap": swap,
+                     "proposing_offer": swap.proposing_offer,
+                     "responding_offer": swap.responding_offer})
+            return HttpResponseRedirect(reverse("proposed_by_you"))
     else:
         swap_form = ProposeSwapForm()
         swap_form.fields['proposing_offer'].queryset = Offer.objects.filter(offerer=request.user, state=1)
@@ -196,17 +233,17 @@ def propose_swap(request, offer_id):
         "swap_form": swap_form,
         "offer_form": offer_form,
     }, context_instance=RequestContext(request))
-    
+
 @login_required
 def accept_swap(request, swap_id):
     swap = get_object_or_404(Swap, id=swap_id)
     swap.accept()
     swap.save()
     if notification:
-        notification.send([swap.proposing_offer.offerer,], "swaps_acceptance", 
-            {"creator": request.user, 
-             "swap": swap, 
-             "proposing_offer": swap.proposing_offer, 
+        notification.send([swap.proposing_offer.offerer,], "swaps_acceptance",
+            {"creator": request.user,
+             "swap": swap,
+             "proposing_offer": swap.proposing_offer,
              "responding_offer": swap.responding_offer})
     return HttpResponseRedirect(reverse("accepted_swaps"))
 
@@ -216,10 +253,10 @@ def reject_swap(request, swap_id):
     swap.reject()
     swap.save()
     if notification:
-        notification.send([swap.proposing_offer.offerer,], "swaps_rejection", 
-            {"creator": request.user, 
-             "swap": swap, 
-             "proposing_offer": swap.proposing_offer, 
+        notification.send([swap.proposing_offer.offerer,], "swaps_rejection",
+            {"creator": request.user,
+             "swap": swap,
+             "proposing_offer": swap.proposing_offer,
              "responding_offer": swap.responding_offer})
     return HttpResponseRedirect(reverse("dead_swaps"))
 
@@ -229,10 +266,9 @@ def cancel_swap(request, swap_id):
     swap.cancel()
     swap.save()
     if notification:
-        notification.send([swap.responding_offer.offerer,], "swaps_cancellation", 
-            {"creator": request.user, 
-             "swap": swap, 
-             "proposing_offer": swap.proposing_offer, 
+        notification.send([swap.responding_offer.offerer,], "swaps_cancellation",
+            {"creator": request.user,
+             "swap": swap,
+             "proposing_offer": swap.proposing_offer,
              "responding_offer": swap.responding_offer})
     return HttpResponseRedirect(reverse("dead_swaps"))
-

@@ -7,23 +7,23 @@
 {% block head_title %}{% blocktrans %}Your accepted Swaps{% endblocktrans %}{% endblock %}
 
 {% block body %}
-    
+
     <h1>{% trans "Your accepted Swaps" %}</h1>
-    
-    
+
+
     {% if swaps %}
 
-        
+
         {% autopaginate swaps %}
 
 			<table class="tasks" >
 				<tr>
-					<th>Accepted Time</th>
-					<th>Proposing Offer</th>
-					<th>Offered By</th>
-					<th>Responding Offer</th>
-					<th>Offered By</th>
-					<th>State</th>
+					<th>{% trans "Accepted Time" %}</th>
+					<th>{% trans "Proposing Offer" %}</th>
+					<th>{% trans "Offered By" %}</th>
+					<th>{% trans "Responding Offer" %}</th>
+					<th>{% trans "Offered By" %}</th>
+					<th>{% trans "State" %}</th>
 				</tr>
 				{% for swap in swaps %}
 					<tr class="{% cycle odd,even %}">
@@ -40,7 +40,7 @@
         {% paginate %}
 
     {% else %}
-        No accepted swaps yet.
+        {% trans "No accepted swaps yet." %}
     {% endif %}
-    
+
 {% endblock %}

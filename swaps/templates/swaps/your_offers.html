@@ -7,23 +7,23 @@
 {% block head_title %}{% blocktrans %}Your Offers{% endblocktrans %}{% endblock %}
 
 {% block body %}
-    
+
     <h1>{% trans "Your Offers" %}</h1>
-    
-    
+
+
     {% if offers %}
 
-        
+
         {% autopaginate offers %}
 
 			<table class="tasks" >
 				<tr>
-					<th>Description</th>
-					<th>Offer Time</th>
-					<th>Offering</th>
-					<th>Want</th>
-					<th>State</th>
-					<th>Swap</th>
+					<th>{% trans "Description" %}</th>
+					<th>{% trans "Offer Time" %}</th>
+					<th>{% trans "Offering" %}</th>
+					<th>{% trans "Want" %}</th>
+					<th>{% trans "State" %}</th>
+					<th>{% trans "Swap" %}</th>
 				</tr>
 				{% for offer in offers %}
 					<tr class="{% cycle odd,even %}">
@@ -50,7 +50,7 @@
         {% paginate %}
 
     {% else %}
-        No offers yet.
+        {% trans "No offers yet." %}
     {% endif %}
-    
+
 {% endblock %}
